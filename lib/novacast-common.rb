@@ -1,6 +1,7 @@
 require 'novacast-common/configuration'
 require 'novacast-common/logging/railtie'
 require 'novacast-common/instrumentation/railtie'
+require 'novacast-common/client_tracker/tracker'
 
 module Novacast
   class << self
