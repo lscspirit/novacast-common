@@ -119,6 +119,22 @@ RSpec.describe Novacast::ClientTracker::Tracker do
     end
   end
 
+  def mark_users_as_new_online(session_uid, users_list)
+    redis.multi do |multi|
+      users_list.each do |user_uid|
+        multi.sadd Novacast::ClientTracker::Tracker::SESSION_USER_ONLINE_KEY, session_user_code(user_uid, session_uid)
+      end
+    end
+  end
+
+  def mark_users_as_new_offline(session_uid, users_list)
+    redis.multi do |multi|
+      users_list.each do |user_uid|
+        multi.sadd Novacast::ClientTracker::Tracker::SESSION_USER_OFFLINE_KEY, session_user_code(user_uid, session_uid)
+      end
+    end
+  end
+
   def users_for_event(event_uid, user_list)
     # finds all session uids for this event
     sess_uids = session_event_map.select { |sess_uid, evt_uid| evt_uid == event_uid }.keys
@@ -524,6 +540,112 @@ RSpec.describe Novacast::ClientTracker::Tracker do
         result = subject
         event_uids.each do |uid|
           expect(result[uid].user_count).to eq(0)
+        end
+      end
+    end
+  end
+
+  describe '::all_user_status_updates' do
+    subject { Novacast::ClientTracker::Tracker.all_user_status_updates }
+
+    context 'with no update' do
+      it 'returns an empty hash' do
+        expect(subject).to be_empty
+      end
+    end
+
+    context 'with updates in one session' do
+      let(:session_uid) { session_uids.sample }
+      let(:expected) do
+        onlines  = []
+        offlines = []
+
+        user_uids.sample(rand(1..user_uids.count)).each do |uid|
+          [onlines, offlines].sample << uid
+        end
+
+        {
+          onlines:  onlines,
+          offlines: offlines
+        }
+      end
+
+      before :example do
+        mark_users_as_new_online  session_uid, expected[:onlines]
+        mark_users_as_new_offline session_uid, expected[:offlines]
+      end
+
+      it 'returns an non-empty hash' do
+        expect(subject).to_not be_empty
+      end
+
+      it 'returns update for one session' do
+        expect(subject.keys.count).to eq(1)
+      end
+
+      it 'returns update for the right session' do
+        expect(subject[session_uid]).to_not be_empty
+      end
+
+      it 'returns the right newly online user' do
+        expect(subject[session_uid][:onlines]).to match_array(expected[:onlines])
+      end
+
+      it 'returns the right newly offline user' do
+        expect(subject[session_uid][:offlines]).to match_array(expected[:offlines])
+      end
+    end
+
+    context 'with updates in multiple sessions' do
+      let(:expected) do
+        sessions = session_uids.sample(rand(2..session_uids.count))
+        sessions.reduce({}) do |h, session_uid|
+          onlines  = []
+          offlines = []
+
+          user_uids.sample(rand(1..user_uids.count)).each do |uid|
+            [onlines, offlines].sample << uid
+          end
+
+          h[session_uid] = {
+            onlines:  onlines,
+            offlines: offlines
+          }
+
+          h
+        end
+      end
+
+      before :example do
+        expected.each do |session_uid, updates|
+          mark_users_as_new_online  session_uid, updates[:onlines]
+          mark_users_as_new_offline session_uid, updates[:offlines]
+        end
+      end
+
+      it 'returns an non-empty hash' do
+        expect(subject).to_not be_empty
+      end
+
+      it 'returns update for the right number of sessions' do
+        expect(subject.keys.count).to eq(expected.keys.count)
+      end
+
+      it 'returns update for the right sessions' do
+        expected.each_key do |session_uid|
+          expect(subject[session_uid]).to_not be_empty
+        end
+      end
+
+      it 'returns the right newly online user for each sessions' do
+        expected.each do |session_uid, updates|
+          expect(subject[session_uid][:onlines]).to match_array(updates[:onlines])
+        end
+      end
+
+      it 'returns the right newly offline user for each sessions' do
+        expected.each do |session_uid, updates|
+          expect(subject[session_uid][:offlines]).to match_array(updates[:offlines])
         end
       end
     end

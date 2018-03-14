@@ -199,7 +199,7 @@ module Novacast
             conn.del SESSION_USER_OFFLINE_KEY
           end
 
-          return onlines, offlines
+          [onlines, offlines]
         end
 
         new_onlines.each do |session_user|
