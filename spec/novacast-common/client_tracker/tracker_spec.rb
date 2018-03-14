@@ -1,3 +1,5 @@
+require 'connection_pool'
+
 RSpec.describe Novacast::ClientTracker::Tracker do
   let(:redis) { Redis.new }
   let(:current_time) { Time.now }
