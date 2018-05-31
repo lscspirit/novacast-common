@@ -3,6 +3,7 @@ require 'novacast-common/logging/railtie'
 require 'novacast-common/instrumentation/railtie'
 require 'novacast-common/client_tracker/tracker'
 require 'novacast-common/active_record/encode'
+require 'novacast-common/permission_token/token'
 
 module Novacast
   class << self
