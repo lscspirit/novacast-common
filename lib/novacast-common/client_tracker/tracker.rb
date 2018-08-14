@@ -192,6 +192,9 @@ module Novacast
         ret = Hash.new {|hsh, k| hsh[k] = Hash.new {|hsh2, k2| hsh2[k2] = []}}
 
         new_onlines, new_offlines = redis.with do |conn|
+          # purges expired user entries from related mappings
+          _purge_users conn
+
           onlines  = conn.smembers SESSION_USER_ONLINE_KEY || []
           offlines = conn.smembers SESSION_USER_OFFLINE_KEY || []
           if clear
